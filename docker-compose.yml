@@ -1,0 +1,117 @@
+services:
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: clinic_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: clinic_user
+      POSTGRES_PASSWORD: clinic_pass
+      POSTGRES_DB: clinic_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clinic_user"]
+      interval: 10s
+      retries: 5
+
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: clinic_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+
+  # ── FastAPI Backend ──────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: clinic_api
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://clinic_user:clinic_pass@db:5432/clinic_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - APP_SECRET_KEY=demo-secret-key-123456789
+      - APP_NAME=Dr. Pooja Agrawal Clinic
+      - PRICE_15MIN=30
+      - PRICE_30MIN=50
+      - DOCTOR_NAME=Dr. Pooja Agrawal
+      - DOCTOR_SPECIALIZATION=General Physician & Consultant
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ── Celery Worker (all 3 agents) ─────────────────────────────────────────────
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: clinic_celery_worker
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://clinic_user:clinic_pass@db:5432/clinic_db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - APP_SECRET_KEY=demo-secret-key-123456789
+      - PRICE_15MIN=30
+      - PRICE_30MIN=50
+      - DOCTOR_NAME=Dr. Pooja Agrawal
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.agents.celery_app worker --loglevel=info --concurrency=4
+
+  # ── Celery Beat (scheduler for ReminderAgent + SlotGeneratorAgent) ───────────
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: clinic_celery_beat
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://clinic_user:clinic_pass@db:5432/clinic_db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - APP_SECRET_KEY=demo-secret-key-123456789
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.agents.celery_app beat --loglevel=info
+
+  # ── Flower (Celery monitoring UI) ────────────────────────────────────────────
+  flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: clinic_flower
+    restart: unless-stopped
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    command: celery -A app.agents.celery_app flower --port=5555
+
+volumes:
+  postgres_data:
