@@ -10,6 +10,14 @@
 
 ---
 
+## Collaboration
+
+- Use Issues for tasks/bugs/feature requests.
+- Use Discussions for architecture and product decisions.
+- Use `APP_DELIVERY_PLAN.md` as the execution taskboard.
+- Use Wiki for runbooks and architecture references.
+
+---
 ## Tech Stack
 
 | Layer | Tech |
@@ -157,6 +165,7 @@ buildozer android debug
 ---
 
 *Made with ❤️ for Dr. Pooja Agrawal*
+
 
 
 
