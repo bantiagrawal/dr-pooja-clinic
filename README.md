@@ -16,6 +16,7 @@
 - Use Discussions for architecture and product decisions.
 - Use `APP_DELIVERY_PLAN.md` as the execution taskboard.
 - Use Wiki for runbooks and architecture references.
+- Wiki source pages are versioned in `wiki/` (publish helper: `scripts/publish_wiki.ps1`).
 
 ---
 ## Tech Stack
@@ -165,6 +166,9 @@ buildozer android debug
 ---
 
 *Made with ❤️ for Dr. Pooja Agrawal*
+
+
+
 
 
 

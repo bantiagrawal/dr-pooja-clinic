@@ -11,3 +11,5 @@ venv/
 .tokens.json
 
 *.db
+
+.wiki-*
