@@ -6,25 +6,28 @@ $ErrorActionPreference = 'Stop'
 $tmp = Join-Path $PSScriptRoot '..\.wiki-publish'
 
 if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp }
-New-Item -ItemType Directory -Force $tmp | Out-Null
-Set-Location $tmp
 
-git init -b master | Out-Null
+try {
+  git clone $WikiRepo $tmp | Out-Null
+}
+catch {
+  Write-Host 'Wiki clone failed. Ensure wiki is enabled and at least one page exists:' -ForegroundColor Yellow
+  Write-Host 'https://github.com/bantiagrawal/dr-pooja-clinic/wiki' -ForegroundColor Yellow
+  throw
+}
+
+Set-Location $tmp
 git config user.name 'bantiagrawal'
 git config user.email 'banti.agrawal@gmail.com'
 
 Copy-Item (Join-Path $PSScriptRoot '..\wiki\*.md') -Destination $tmp -Force
-git add .
-git commit -m 'Publish wiki pages' | Out-Null
-git remote add origin $WikiRepo
 
-try {
-  git push -u origin master
-  Write-Host 'Wiki publish succeeded.' -ForegroundColor Green
+git add .
+if ((git status --short).Length -eq 0) {
+  Write-Host 'No wiki changes to publish.' -ForegroundColor Green
+  exit 0
 }
-catch {
-  Write-Host 'Wiki publish failed. The wiki git endpoint may not be initialized yet.' -ForegroundColor Yellow
-  Write-Host 'Open this once in browser, create any page, then rerun:' -ForegroundColor Yellow
-  Write-Host 'https://github.com/bantiagrawal/dr-pooja-clinic/wiki' -ForegroundColor Yellow
-  throw
-}
+
+git commit -m 'Publish wiki pages' | Out-Null
+git push origin master
+Write-Host 'Wiki publish succeeded.' -ForegroundColor Green
